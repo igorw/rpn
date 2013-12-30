@@ -9,3 +9,7 @@ Read the blog posts from the "Stack Machines" series:
 
     $ php calc.php '1 + 2 * 3'
     7
+
+## Technical description
+
+![composite of machines](doc/composite.png)
