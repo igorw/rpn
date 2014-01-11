@@ -7,25 +7,24 @@ function tokenize($input)
     return explode(' ', trim(preg_replace('#[ ]+#', ' ', str_replace(['(', ')'], [' ( ', ' ) '], $input))));
 }
 
-function shunting_yard(array $tokens, array $operators)
+function shunting_yard($tokens, array $operators)
 {
     $stack = new \SplStack();
-    $output = new \SplQueue();
 
     foreach ($tokens as $token) {
         if (is_numeric($token)) {
-            $output->enqueue($token);
+            yield $token;
         } elseif (isset($operators[$token])) {
             $o1 = $token;
-            while (has_operator($stack, $operators) && ($o2 = $stack->top()) && has_lower_precedence($o1, $o2, $operators)) {
-                $output->enqueue($stack->pop());
+            while (stack_has_higher_operator($o1, $stack, $operators)) {
+                yield $stack->pop();
             }
             $stack->push($o1);
         } elseif ('(' === $token) {
             $stack->push($token);
         } elseif (')' === $token) {
             while (count($stack) > 0 && '(' !== $stack->top()) {
-                $output->enqueue($stack->pop());
+                yield $stack->pop();
             }
 
             if (count($stack) === 0) {
@@ -39,20 +38,28 @@ function shunting_yard(array $tokens, array $operators)
         }
     }
 
-    while (has_operator($stack, $operators)) {
-        $output->enqueue($stack->pop());
+    while (stack_has_operator($stack, $operators)) {
+        yield $stack->pop();
     }
 
     if (count($stack) > 0) {
         throw new \InvalidArgumentException(sprintf('Mismatched parenthesis or misplaced number in input: %s', json_encode($tokens)));
     }
-
-    return iterator_to_array($output);
 }
 
-function has_operator(\SplStack $stack, array $operators)
+function stack_has_operator(\SplStack $stack, array $operators)
 {
     return count($stack) > 0 && ($top = $stack->top()) && isset($operators[$top]);
+}
+
+function stack_has_higher_operator($o1, \SplStack $stack, array $operators)
+{
+    if (!stack_has_operator($stack, $operators)) {
+        return false;
+    }
+
+    $o2 = $stack->top();
+    return has_lower_precedence($o1, $o2, $operators);
 }
 
 function has_lower_precedence($o1, $o2, array $operators)
@@ -62,7 +69,7 @@ function has_lower_precedence($o1, $o2, array $operators)
     return ('left' === $op1['associativity'] && $op1['precedence'] === $op2['precedence']) || $op1['precedence'] < $op2['precedence'];
 }
 
-function execute(array $ops)
+function execute($ops)
 {
     $stack = new \SplStack();
 
